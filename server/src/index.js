@@ -74,9 +74,13 @@ process.on("unhandledRejection", (reason, promise) => {
 const clientDist = path.join(__dirname, "../../client/dist");
 app.use(express.static(clientDist));
 
-app.get("*", (req, res, next) => {
-  if (req.path.startsWith("/api") || req.path.startsWith("/uploads")) {
+// SPA Fallback middleware (Express 5 compatible)
+app.use((req, res, next) => {
+  if (req.method !== 'GET') {
     return next();
+  }
+  if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) {
+    return res.status(404).json({ status: 'error', message: 'API endpoint not found' });
   }
   res.sendFile(path.join(clientDist, "index.html"), (err) => {
     if (err) {
