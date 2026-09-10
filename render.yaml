@@ -21,4 +21,4 @@ databases:
     plan: free
     region: frankfurt
     databaseName: social_seller_db
-    user: postgres
+    user: social_seller_user
