@@ -186,12 +186,20 @@ async function seedPixelStore() {
     console.log(`   Store ID : ${seller.id}`);
     console.log(`\n   🌐 Public Store URL: http://localhost:5173/store/${seller.id}\n`);
 
+    if (autoExit) {
+      process.exit(0);
+    }
+    return { success: true, seller };
   } catch (err) {
     console.error('\n❌ Seed Error:', err.message || err);
-    process.exit(1);
+    if (autoExit) {
+      process.exit(1);
+    }
+    return { success: false, error: err.message };
   }
-
-  process.exit(0);
 }
 
-seedPixelStore();
+if (process.argv[1] && process.argv[1].endsWith('seed-pixel-store.js')) {
+  seedPixelStore(true);
+}
+

@@ -32,6 +32,9 @@ app.use("/uploads", express.static(path.join(__dirname, "../public/uploads"), {
 }));
 
 
+import { seedPixelStore } from "./seed-pixel-store.js";
+import { exec } from "child_process";
+
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
@@ -60,6 +63,48 @@ app.get("/api/db-check", async (req, res) => {
     });
   }
 });
+
+// Manual Seed / Sync Trigger Route
+app.get("/api/seed", async (req, res) => {
+  try {
+    const result = await seedPixelStore();
+    res.json({
+      status: "success",
+      message: "Google Pixel store seeded successfully!",
+      result
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: "error",
+      message: error.message
+    });
+  }
+});
+
+// Auto bootstrap check on startup
+async function bootstrapDatabase() {
+  try {
+    const users = await db.orm.public.User.all();
+    if (users.length === 0) {
+      console.log("🌱 Fresh database detected. Seeding Google Pixel demo account...");
+      await seedPixelStore();
+    } else {
+      console.log(`✅ Database ready with ${users.length} seller(s).`);
+    }
+  } catch (err) {
+    console.log("⚠️ Database tables may need sync. Running auto-migration...", err.message);
+    exec("npx prisma db update --no-interactive --confirm social_seller_db", async (err, stdout, stderr) => {
+      if (err) {
+        console.error("Prisma db update error:", err.message);
+      } else {
+        console.log("✅ Prisma schema synced successfully:\n", stdout);
+        await seedPixelStore();
+      }
+    });
+  }
+}
+bootstrapDatabase();
+
 
 // Global Process Error Handlers for cloud deployments
 process.on("uncaughtException", (err) => {

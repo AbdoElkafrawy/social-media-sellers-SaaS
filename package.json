@@ -6,7 +6,7 @@
     "build:client": "cd client && npm install && npm run build",
     "build:server": "cd server && npm install && npx prisma contract emit",
     "build": "npm run build:client && npm run build:server",
-    "start": "cd server && npm start",
+    "start": "cd server && (npx prisma db update --no-interactive --confirm social_seller_db || true) && (node src/seed-pixel-store.js || true) && node src/index.js",
     "dev:server": "cd server && npm run dev",
     "dev:client": "cd client && npm run dev"
   },
