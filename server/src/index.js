@@ -12,18 +12,28 @@ import storeRoutes from "./routes/store.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+import fs from "fs";
+
 const app = express();
 const port = process.env.PORT || 5000;
 
-// Security Middlewares
+// Security Middlewares (configured to allow external & uploaded media)
 app.use(helmet({
-  crossOriginResourcePolicy: { policy: "cross-origin" }
+  contentSecurityPolicy: false,
+  crossOriginResourcePolicy: false,
+  crossOriginEmbedderPolicy: false
 }));
 app.use(cors());
 app.use(express.json());
 
+// Ensure upload directories exist
+const uploadsDir = path.join(__dirname, "../public/uploads");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
 // Serve uploaded images statically (with SVG support)
-app.use("/uploads", express.static(path.join(__dirname, "../public/uploads"), {
+app.use("/uploads", express.static(uploadsDir, {
   setHeaders: (res, filePath) => {
     if (filePath.endsWith('.svg')) {
       res.setHeader('Content-Type', 'image/svg+xml');
@@ -70,7 +80,7 @@ app.get("/api/seed", async (req, res) => {
     const result = await seedPixelStore();
     res.json({
       status: "success",
-      message: "Google Pixel store seeded successfully!",
+      message: "Google Pixel store seeded successfully with local SVGs/images!",
       result
     });
   } catch (error) {
@@ -90,6 +100,12 @@ async function bootstrapDatabase() {
       await seedPixelStore();
     } else {
       console.log(`✅ Database ready with ${users.length} seller(s).`);
+      // Auto-upgrade any legacy external image URLs to bundled SVGs/images
+      const firstProduct = await db.orm.public.Product.first();
+      if (firstProduct && firstProduct.images && firstProduct.images.includes("gsmarena")) {
+        console.log("🔄 Updating legacy image URLs to bundled SVGs/images...");
+        await seedPixelStore();
+      }
     }
   } catch (err) {
     console.log("⚠️ Database tables may need sync. Running auto-migration...", err.message);
@@ -104,6 +120,7 @@ async function bootstrapDatabase() {
   }
 }
 bootstrapDatabase();
+
 
 
 // Global Process Error Handlers for cloud deployments

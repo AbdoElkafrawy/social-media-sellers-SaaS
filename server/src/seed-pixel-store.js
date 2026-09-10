@@ -25,9 +25,15 @@ const PIXEL_PRODUCTS = [
     price: 1099.00,
     stock: 25,
     images: JSON.stringify([
-      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel9-pro-xl-obsidian-1.jpg',
-      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel9-pro-xl-obsidian-2.jpg',
-      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel9-pro-xl-obsidian-3.jpg',
+      '/uploads/pixel/pixel9-pro-xl-front.svg',
+      '/uploads/pixel/pixel9-pro-xl-back.svg',
+      '/uploads/pixel/pixel9-pro-xl-side.svg',
+    ]),
+    colors: JSON.stringify([
+      { name: 'Obsidian', hex: '#1c1c1e' },
+      { name: 'Porcelain', hex: '#f5f0eb' },
+      { name: 'Hazel', hex: '#7a705e' },
+      { name: 'Rose Quartz', hex: '#e8c4c4' },
     ]),
   },
   {
@@ -36,9 +42,15 @@ const PIXEL_PRODUCTS = [
     price: 999.00,
     stock: 30,
     images: JSON.stringify([
-      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel9-pro-1.jpg',
-      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel9-pro-2.jpg',
-      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel9-pro-3.jpg',
+      '/uploads/pixel/pixel9-pro-front.svg',
+      '/uploads/pixel/pixel9-pro-back.svg',
+      '/uploads/pixel/pixel9-pro-side.svg',
+    ]),
+    colors: JSON.stringify([
+      { name: 'Obsidian', hex: '#1c1c1e' },
+      { name: 'Porcelain', hex: '#f5f0eb' },
+      { name: 'Hazel', hex: '#7a705e' },
+      { name: 'Rose Quartz', hex: '#e8c4c4' },
     ]),
   },
   {
@@ -47,9 +59,15 @@ const PIXEL_PRODUCTS = [
     price: 799.00,
     stock: 50,
     images: JSON.stringify([
-      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel9-1.jpg',
-      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel9-2.jpg',
-      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel9-3.jpg',
+      '/uploads/pixel/pixel9-front.svg',
+      '/uploads/pixel/pixel9-back.svg',
+      '/uploads/pixel/pixel9-side.svg',
+    ]),
+    colors: JSON.stringify([
+      { name: 'Obsidian', hex: '#1c1c1e' },
+      { name: 'Porcelain', hex: '#f5f0eb' },
+      { name: 'Wintergreen', hex: '#a3d9c9' },
+      { name: 'Peony', hex: '#e8c4c4' },
     ]),
   },
   {
@@ -58,9 +76,13 @@ const PIXEL_PRODUCTS = [
     price: 1799.00,
     stock: 15,
     images: JSON.stringify([
-      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel9-pro-fold-1.jpg',
-      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel9-pro-fold-2.jpg',
-      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel9-pro-fold-3.jpg',
+      '/uploads/pixel/pixel9-pro-fold-front.svg',
+      '/uploads/pixel/pixel9-pro-fold-back.svg',
+      '/uploads/pixel/pixel9-pro-fold-side.svg',
+    ]),
+    colors: JSON.stringify([
+      { name: 'Obsidian', hex: '#1c1c1e' },
+      { name: 'Porcelain', hex: '#f5f0eb' },
     ]),
   },
   {
@@ -69,9 +91,15 @@ const PIXEL_PRODUCTS = [
     price: 799.00,
     stock: 40,
     images: JSON.stringify([
-      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel8-pro-1.jpg',
-      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel8-pro-2.jpg',
-      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel8-pro-3.jpg',
+      '/uploads/pixel/pixel8-pro-front.svg',
+      '/uploads/pixel/pixel8-pro-back.svg',
+      '/uploads/pixel/pixel8-pro-side.svg',
+    ]),
+    colors: JSON.stringify([
+      { name: 'Obsidian', hex: '#1c1c1e' },
+      { name: 'Porcelain', hex: '#f5f0eb' },
+      { name: 'Bay Blue', hex: '#4a7b9d' },
+      { name: 'Mint Green', hex: '#a3d9c9' },
     ]),
   },
   {
@@ -80,9 +108,15 @@ const PIXEL_PRODUCTS = [
     price: 599.00,
     stock: 45,
     images: JSON.stringify([
-      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel8-1.jpg',
-      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel8-2.jpg',
-      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel8-3.jpg',
+      '/uploads/pixel/pixel8-front.svg',
+      '/uploads/pixel/pixel8-back.svg',
+      '/uploads/pixel/pixel8-side.svg',
+    ]),
+    colors: JSON.stringify([
+      { name: 'Obsidian', hex: '#1c1c1e' },
+      { name: 'Hazel', hex: '#7a705e' },
+      { name: 'Rose Quartz', hex: '#e8c4c4' },
+      { name: 'Mint Green', hex: '#a3d9c9' },
     ]),
   },
   {
@@ -91,9 +125,15 @@ const PIXEL_PRODUCTS = [
     price: 499.00,
     stock: 60,
     images: JSON.stringify([
-      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel8a-1.jpg',
-      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel8a-2.jpg',
-      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel8a-3.jpg',
+      '/uploads/pixel/pixel8a-front.svg',
+      '/uploads/pixel/pixel8a-back.svg',
+      '/uploads/pixel/pixel8a-side.svg',
+    ]),
+    colors: JSON.stringify([
+      { name: 'Obsidian', hex: '#1c1c1e' },
+      { name: 'Porcelain', hex: '#f5f0eb' },
+      { name: 'Bay Blue', hex: '#4a7b9d' },
+      { name: 'Aloe', hex: '#a3d9c9' },
     ]),
   },
   {
@@ -102,9 +142,14 @@ const PIXEL_PRODUCTS = [
     price: 649.00,
     stock: 20,
     images: JSON.stringify([
-      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel7-pro-1.jpg',
-      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel7-pro-2.jpg',
-      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel7-pro-3.jpg',
+      '/uploads/pixel/pixel7-pro-front.svg',
+      '/uploads/pixel/pixel7-pro-back.svg',
+      '/uploads/pixel/pixel7-pro-side.svg',
+    ]),
+    colors: JSON.stringify([
+      { name: 'Obsidian', hex: '#1c1c1e' },
+      { name: 'Snow', hex: '#ffffff' },
+      { name: 'Hazel', hex: '#7a705e' },
     ]),
   },
   {
@@ -113,9 +158,15 @@ const PIXEL_PRODUCTS = [
     price: 399.00,
     stock: 55,
     images: JSON.stringify([
-      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel7a-1.jpg',
-      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel7a-2.jpg',
-      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel7a-3.jpg',
+      '/uploads/pixel/pixel7a-front.svg',
+      '/uploads/pixel/pixel7a-back.svg',
+      '/uploads/pixel/pixel7a-side.svg',
+    ]),
+    colors: JSON.stringify([
+      { name: 'Charcoal', hex: '#1c1c1e' },
+      { name: 'Snow', hex: '#ffffff' },
+      { name: 'Sea Blue', hex: '#4a7b9d' },
+      { name: 'Coral', hex: '#e8784a' },
     ]),
   },
   {
@@ -124,9 +175,14 @@ const PIXEL_PRODUCTS = [
     price: 299.00,
     stock: 35,
     images: JSON.stringify([
-      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel6a-1.jpg',
-      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel6a-2.jpg',
-      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel6a-3.jpg',
+      '/uploads/pixel/pixel6a-front.svg',
+      '/uploads/pixel/pixel6a-back.svg',
+      '/uploads/pixel/pixel6a-side.svg',
+    ]),
+    colors: JSON.stringify([
+      { name: 'Charcoal', hex: '#1c1c1e' },
+      { name: 'Chalk', hex: '#ffffff' },
+      { name: 'Sage', hex: '#7c9a7e' },
     ]),
   },
 ];
