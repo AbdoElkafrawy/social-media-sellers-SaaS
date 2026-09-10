@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: social-media-sellers
+    env: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: social-seller-db
+          property: connectionString
+
+databases:
+  - name: social-seller-db
+    plan: free
+    region: frankfurt
+    databaseName: social_seller_db
+    user: postgres

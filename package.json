@@ -1,0 +1,16 @@
+{
+  "name": "social-media-sellers-saas",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build:client": "cd client && npm install && npm run build",
+    "build:server": "cd server && npm install && npx prisma contract emit",
+    "build": "npm run build:client && npm run build:server",
+    "start": "cd server && npm start",
+    "dev:server": "cd server && npm run dev",
+    "dev:client": "cd client && npm run dev"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

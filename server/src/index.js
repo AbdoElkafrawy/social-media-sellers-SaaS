@@ -61,6 +61,22 @@ app.get("/api/db-check", async (req, res) => {
   }
 });
 
+// Serve frontend build in production
+const clientDist = path.join(__dirname, "../../client/dist");
+app.use(express.static(clientDist));
+
+app.get("*", (req, res, next) => {
+  if (req.path.startsWith("/api") || req.path.startsWith("/uploads")) {
+    return next();
+  }
+  res.sendFile(path.join(clientDist, "index.html"), (err) => {
+    if (err) {
+      next();
+    }
+  });
+});
+
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
+
