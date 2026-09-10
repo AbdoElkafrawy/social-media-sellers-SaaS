@@ -61,6 +61,15 @@ app.get("/api/db-check", async (req, res) => {
   }
 });
 
+// Global Process Error Handlers for cloud deployments
+process.on("uncaughtException", (err) => {
+  console.error("❌ UNCAUGHT EXCEPTION:", err);
+});
+
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("❌ UNHANDLED REJECTION at:", promise, "reason:", reason);
+});
+
 // Serve frontend build in production
 const clientDist = path.join(__dirname, "../../client/dist");
 app.use(express.static(clientDist));
@@ -71,12 +80,18 @@ app.get("*", (req, res, next) => {
   }
   res.sendFile(path.join(clientDist, "index.html"), (err) => {
     if (err) {
-      next();
+      // Fallback if index.html isn't ready
+      res.status(200).send("Social Media Sellers API is active.");
     }
   });
 });
 
-app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+const server = app.listen(port, "0.0.0.0", () => {
+  console.log(`🚀 Server is running and listening on 0.0.0.0:${port}`);
 });
+
+server.on("error", (err) => {
+  console.error("❌ Server listen error:", err);
+});
+
 
