@@ -1,0 +1,27 @@
+// use prisma-next
+
+model User {
+  id        String    @id @default(uuid())
+  email     String    @unique
+  password  String
+  storeName      String
+  currency       String    @default("EGP")
+  whatsappNumber String?
+  products       Product[]
+  createdAt      TimestamptzString @default(now())
+  updatedAt      temporal.updatedAtString()
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  price       Float
+  stock       Int      @default(0)
+  images      String?  // JSON array string of up to 6 image URLs
+  colors      String?  // JSON array string of color variants [{ name, hex }]
+  user        User     @relation(fields: [userId], references: [id])
+  userId      String
+  createdAt   TimestamptzString @default(now())
+  updatedAt   temporal.updatedAtString()
+}

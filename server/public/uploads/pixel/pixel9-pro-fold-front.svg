@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 560" width="400" height="560">
+  <defs>
+    <filter id="sh-pixel9-pro-fold-front">
+      <feDropShadow dx="0" dy="12" stdDeviation="20" flood-color="rgba(0,0,0,0.35)"/>
+    </filter>
+    <linearGradient id="gr-pixel9-pro-fold-front" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#8B4A6B"/>
+      <stop offset="100%" stop-color="#a96889"/>
+    </linearGradient>
+    <linearGradient id="sg-pixel9-pro-fold-front" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#6d3854"/>
+      <stop offset="100%" stop-color="#8B4A6B"/>
+    </linearGradient>
+    <clipPath id="clip-pixel9-pro-fold-front">
+      <rect x="128" y="150" width="144" height="260" rx="16"/>
+    </clipPath>
+  </defs>
+
+  <!-- Background -->
+  <rect width="400" height="560" fill="#F3F0EC"/>
+
+  <!-- Soft radial glow behind phone -->
+  <ellipse cx="200" cy="280" rx="180" ry="200" fill="#F5932522"/>
+
+  <!-- Phone body -->
+  <rect x="120" y="120" width="160" height="320"
+        rx="20" fill="url(#gr-pixel9-pro-fold-front)" filter="url(#sh-pixel9-pro-fold-front)"/>
+
+  <!-- Highlight shine on left edge -->
+  <rect x="120" y="140" width="3" height="280"
+        rx="2" fill="rgba(255,255,255,0.18)"/>
+
+  <!-- Screen -->
+  <rect x="128" y="150" width="144" height="260"
+        rx="16" fill="url(#sg-pixel9-pro-fold-front)"/>
+
+  
+  <!-- Notch/punch-hole -->
+  <circle cx="200" cy="160" r="5" fill="#8B4A6B"/>
+
+  <!-- Status bar dots -->
+  <circle cx="142" cy="160" r="2.5" fill="rgba(255,255,255,0.5)"/>
+  <circle cx="150" cy="160" r="2.5" fill="rgba(255,255,255,0.5)"/>
+
+  <!-- G logo on screen -->
+  <text x="200" y="228.8" text-anchor="middle"
+        font-family="Arial,sans-serif" font-size="28" font-weight="900"
+        fill="#F59325" letter-spacing="-1">G</text>
+
+  <!-- Product name on screen -->
+  <text x="200" y="256.8" text-anchor="middle"
+        font-family="Arial,sans-serif" font-size="10" font-weight="700"
+        fill="rgba(255,255,255,0.9)" letter-spacing="1">PIXEL 9 PRO FOLD</text>
+
+  <!-- Divider -->
+  <line x1="148" y1="264.8" x2="252" y2="264.8"
+        stroke="#F59325" stroke-width="0.8" opacity="0.6"/>
+
+  <!-- Spec lines -->
+  
+  <text x="200" y="280.8" text-anchor="middle"
+        font-family="Arial,sans-serif" font-size="8.5" fill="rgba(255,255,255,0.65)">8" Inner Display</text>
+  <text x="200" y="296.8" text-anchor="middle"
+        font-family="Arial,sans-serif" font-size="8.5" fill="rgba(255,255,255,0.65)">Foldable Design</text>
+  <text x="200" y="312.8" text-anchor="middle"
+        font-family="Arial,sans-serif" font-size="8.5" fill="rgba(255,255,255,0.65)">Tensor G4</text>
+  <text x="200" y="328.8" text-anchor="middle"
+        font-family="Arial,sans-serif" font-size="8.5" fill="rgba(255,255,255,0.65)">Thinnest Fold</text>
+
+  <!-- Home bar -->
+  <rect x="175" y="402" width="50" height="3"
+        rx="2" fill="rgba(255,255,255,0.4)"/>
+  
+
+  <!-- Camera bump (side) for front view -->
+  
+  <rect x="276" y="180" width="6" height="60"
+        rx="3" fill="#9f5e7f" opacity="0.7"/>
+
+  <!-- Volume buttons -->
+  <rect x="116" y="190" width="5" height="22" rx="2" fill="#a46384"/>
+  <rect x="116" y="218" width="5" height="22" rx="2" fill="#a46384"/>
+
+  <!-- Power button -->
+  <rect x="279" y="210" width="5" height="30" rx="2" fill="#a46384"/>
+
+  
+  <!-- Badge -->
+  <rect x="120" y="96" width="48" height="20"
+        rx="10" fill="#F59325"/>
+  <text x="144" y="110" text-anchor="middle"
+        font-family="Arial,sans-serif" font-size="9" font-weight="800"
+        fill="white" letter-spacing="1">FOLD</text>
+  
+</svg>
