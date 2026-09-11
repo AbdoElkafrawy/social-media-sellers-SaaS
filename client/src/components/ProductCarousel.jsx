@@ -27,7 +27,18 @@ function ProductCarousel({ images, name, height = '200px' }) {
         src={images[activeIdx]}
         alt={`${name} - photo ${activeIdx + 1}`}
         className="card-main-image"
+        loading="lazy"
+        onError={(e) => {
+          e.currentTarget.onerror = null; // prevent infinite loop
+          e.currentTarget.src = '';
+          e.currentTarget.style.display = 'none';
+          const placeholder = e.currentTarget.nextElementSibling;
+          if (placeholder) placeholder.style.display = 'flex';
+        }}
       />
+      <div className="card-image-placeholder" style={{ display: 'none' }}>
+        <span>🛍️ Photo Unavailable</span>
+      </div>
 
       {images.length > 1 && (
         <>

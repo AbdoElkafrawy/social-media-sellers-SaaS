@@ -87,10 +87,14 @@ async function bootstrapDatabase() {
       await seedPixelStore();
     } else {
       console.log(`✅ Database ready with ${users.length} seller(s).`);
-      // Auto-upgrade any legacy external image URLs to bundled SVGs/images
+      // Auto-upgrade any legacy image URLs (old gsmarena CDN or old local /uploads/pixel/ SVG paths)
       const firstProduct = await db.orm.public.Product.first();
-      if (firstProduct && firstProduct.images && firstProduct.images.includes("gsmarena")) {
-        console.log("🔄 Updating legacy image URLs to bundled SVGs/images...");
+      const hasLegacyImages = firstProduct && firstProduct.images && (
+        firstProduct.images.includes("gsmarena") ||
+        firstProduct.images.includes("/uploads/pixel/")
+      );
+      if (hasLegacyImages) {
+        console.log("🔄 Detected legacy image URLs — re-seeding demo store with permanent image URLs...");
         await seedPixelStore();
       }
     }

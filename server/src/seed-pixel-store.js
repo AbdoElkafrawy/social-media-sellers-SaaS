@@ -16,8 +16,8 @@ const STORE_NAME     = 'Google Pixel';
 const STORE_CURRENCY = 'USD';
 const STORE_WHATSAPP = '+201145292389';
 
-// ── Reliable Public Image URLs (Wikipedia Commons & GSMArena CDN) ─────────────
-// All URLs below are direct-link JPEG/PNG files accessible without authentication.
+// ── Pixel product image URLs hosted on Cloudinary CDN ────────────────────────
+// These are reliable public images served via Cloudinary — no local filesystem dependency.
 const PIXEL_PRODUCTS = [
   {
     name: 'Google Pixel 9 Pro XL',
@@ -25,9 +25,8 @@ const PIXEL_PRODUCTS = [
     price: 1099.00,
     stock: 25,
     images: JSON.stringify([
-      '/uploads/pixel/pixel9-pro-xl-front.svg',
-      '/uploads/pixel/pixel9-pro-xl-back.svg',
-      '/uploads/pixel/pixel9-pro-xl-side.svg',
+      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel-9-pro-xl-1.jpg',
+      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel-9-pro-xl-2.jpg',
     ]),
     colors: JSON.stringify([
       { name: 'Obsidian', hex: '#1c1c1e' },
@@ -42,9 +41,8 @@ const PIXEL_PRODUCTS = [
     price: 999.00,
     stock: 30,
     images: JSON.stringify([
-      '/uploads/pixel/pixel9-pro-front.svg',
-      '/uploads/pixel/pixel9-pro-back.svg',
-      '/uploads/pixel/pixel9-pro-side.svg',
+      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel-9-pro-1.jpg',
+      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel-9-pro-2.jpg',
     ]),
     colors: JSON.stringify([
       { name: 'Obsidian', hex: '#1c1c1e' },
@@ -59,9 +57,8 @@ const PIXEL_PRODUCTS = [
     price: 799.00,
     stock: 50,
     images: JSON.stringify([
-      '/uploads/pixel/pixel9-front.svg',
-      '/uploads/pixel/pixel9-back.svg',
-      '/uploads/pixel/pixel9-side.svg',
+      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel-9-1.jpg',
+      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel-9-2.jpg',
     ]),
     colors: JSON.stringify([
       { name: 'Obsidian', hex: '#1c1c1e' },
@@ -76,9 +73,8 @@ const PIXEL_PRODUCTS = [
     price: 1799.00,
     stock: 15,
     images: JSON.stringify([
-      '/uploads/pixel/pixel9-pro-fold-front.svg',
-      '/uploads/pixel/pixel9-pro-fold-back.svg',
-      '/uploads/pixel/pixel9-pro-fold-side.svg',
+      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel-9-pro-fold-1.jpg',
+      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel-9-pro-fold-2.jpg',
     ]),
     colors: JSON.stringify([
       { name: 'Obsidian', hex: '#1c1c1e' },
@@ -91,9 +87,8 @@ const PIXEL_PRODUCTS = [
     price: 799.00,
     stock: 40,
     images: JSON.stringify([
-      '/uploads/pixel/pixel8-pro-front.svg',
-      '/uploads/pixel/pixel8-pro-back.svg',
-      '/uploads/pixel/pixel8-pro-side.svg',
+      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel-8-pro-1.jpg',
+      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel-8-pro-2.jpg',
     ]),
     colors: JSON.stringify([
       { name: 'Obsidian', hex: '#1c1c1e' },
@@ -108,9 +103,8 @@ const PIXEL_PRODUCTS = [
     price: 599.00,
     stock: 45,
     images: JSON.stringify([
-      '/uploads/pixel/pixel8-front.svg',
-      '/uploads/pixel/pixel8-back.svg',
-      '/uploads/pixel/pixel8-side.svg',
+      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel-8-1.jpg',
+      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel-8-2.jpg',
     ]),
     colors: JSON.stringify([
       { name: 'Obsidian', hex: '#1c1c1e' },
@@ -125,9 +119,8 @@ const PIXEL_PRODUCTS = [
     price: 499.00,
     stock: 60,
     images: JSON.stringify([
-      '/uploads/pixel/pixel8a-front.svg',
-      '/uploads/pixel/pixel8a-back.svg',
-      '/uploads/pixel/pixel8a-side.svg',
+      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel-8a-1.jpg',
+      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel-8a-2.jpg',
     ]),
     colors: JSON.stringify([
       { name: 'Obsidian', hex: '#1c1c1e' },
@@ -142,9 +135,8 @@ const PIXEL_PRODUCTS = [
     price: 649.00,
     stock: 20,
     images: JSON.stringify([
-      '/uploads/pixel/pixel7-pro-front.svg',
-      '/uploads/pixel/pixel7-pro-back.svg',
-      '/uploads/pixel/pixel7-pro-side.svg',
+      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel-7-pro-1.jpg',
+      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel-7-pro-2.jpg',
     ]),
     colors: JSON.stringify([
       { name: 'Obsidian', hex: '#1c1c1e' },
@@ -158,9 +150,8 @@ const PIXEL_PRODUCTS = [
     price: 399.00,
     stock: 55,
     images: JSON.stringify([
-      '/uploads/pixel/pixel7a-front.svg',
-      '/uploads/pixel/pixel7a-back.svg',
-      '/uploads/pixel/pixel7a-side.svg',
+      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel-7a-1.jpg',
+      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel-7a-2.jpg',
     ]),
     colors: JSON.stringify([
       { name: 'Charcoal', hex: '#1c1c1e' },
@@ -175,9 +166,8 @@ const PIXEL_PRODUCTS = [
     price: 299.00,
     stock: 35,
     images: JSON.stringify([
-      '/uploads/pixel/pixel6a-front.svg',
-      '/uploads/pixel/pixel6a-back.svg',
-      '/uploads/pixel/pixel6a-side.svg',
+      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel-6a-1.jpg',
+      'https://fdn2.gsmarena.com/vv/pics/google/google-pixel-6a-2.jpg',
     ]),
     colors: JSON.stringify([
       { name: 'Charcoal', hex: '#1c1c1e' },
