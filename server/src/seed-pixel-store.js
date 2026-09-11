@@ -178,7 +178,7 @@ const PIXEL_PRODUCTS = [
 ];
 
 // ── Main Seed Function ────────────────────────────────────────────────────────
-async function seedPixelStore() {
+export async function seedPixelStore(autoExit = false) {
   console.log('\n🚀 Google Pixel Store Seeder Starting...\n');
 
   try {
