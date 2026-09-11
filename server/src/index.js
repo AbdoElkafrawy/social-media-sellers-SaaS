@@ -12,7 +12,7 @@ import storeRoutes from "./routes/store.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-import fs from "fs";
+
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -26,20 +26,7 @@ app.use(helmet({
 app.use(cors());
 app.use(express.json());
 
-// Ensure upload directories exist
-const uploadsDir = path.join(__dirname, "../public/uploads");
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-
-// Serve uploaded images statically (with SVG support)
-app.use("/uploads", express.static(uploadsDir, {
-  setHeaders: (res, filePath) => {
-    if (filePath.endsWith('.svg')) {
-      res.setHeader('Content-Type', 'image/svg+xml');
-    }
-  }
-}));
+// Images are served via Cloudinary CDN — no local /uploads directory needed.
 
 
 import { seedPixelStore } from "./seed-pixel-store.js";
@@ -141,7 +128,7 @@ app.use((req, res, next) => {
   if (req.method !== 'GET') {
     return next();
   }
-  if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) {
+  if (req.path.startsWith('/api')) {
     return res.status(404).json({ status: 'error', message: 'API endpoint not found' });
   }
   res.sendFile(path.join(clientDist, "index.html"), (err) => {

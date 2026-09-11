@@ -1,41 +1,21 @@
 import express from 'express';
 import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
-import { fileURLToPath } from 'url';
 import { db } from '../db.js';
 import { authenticateToken } from '../middleware/auth.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import cloudinary from '../cloudinary.js';
 
 const router = express.Router();
 
-// Ensure upload directory exists
-const uploadDir = path.join(__dirname, '../../public/uploads');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-// Multer Storage Configuration
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    const ext = path.extname(file.originalname).toLowerCase();
-    cb(null, `prod-${uniqueSuffix}${ext}`);
-  },
-});
+// Use memory storage — files are streamed directly to Cloudinary, never touch disk
+const storage = multer.memoryStorage();
 
 // File Filter & Size Limit (Max 6 files, 25MB limit per photo)
 const upload = multer({
   storage,
-  limits: { fileSize: 25 * 1024 * 1024 }, // 25 MB limit per photo
+  limits: { fileSize: 25 * 1024 * 1024 }, // 25 MB per file
   fileFilter: (req, file, cb) => {
     const allowedTypes = /jpeg|jpg|png|webp|gif/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const extname = allowedTypes.test(file.originalname.split('.').pop().toLowerCase());
     const mimetype = allowedTypes.test(file.mimetype);
 
     if (extname && mimetype) {
@@ -45,6 +25,64 @@ const upload = multer({
     }
   },
 });
+
+/**
+ * Uploads a single file buffer to Cloudinary.
+ * Returns the secure HTTPS URL of the uploaded image.
+ */
+function uploadToCloudinary(fileBuffer, mimetype) {
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder: 'social-media-sellers/products',
+        resource_type: 'image',
+        format: 'webp',       // Auto-convert to WebP for better performance
+        quality: 'auto:good', // Automatic quality optimization
+      },
+      (error, result) => {
+        if (error) return reject(error);
+        resolve(result.secure_url);
+      }
+    );
+    uploadStream.end(fileBuffer);
+  });
+}
+
+/**
+ * Extracts the Cloudinary public_id from a secure URL so we can delete it.
+ * e.g. "https://res.cloudinary.com/cloud/image/upload/v123/social-media-sellers/products/abc.webp"
+ *   -> "social-media-sellers/products/abc"
+ */
+function extractPublicId(cloudinaryUrl) {
+  try {
+    const url = new URL(cloudinaryUrl);
+    // Pathname: /cloud_name/image/upload/v12345/folder/filename.ext
+    const parts = url.pathname.split('/');
+    const uploadIndex = parts.indexOf('upload');
+    if (uploadIndex === -1) return null;
+    // Skip the version segment if present (starts with 'v' + digits)
+    let startIndex = uploadIndex + 1;
+    if (/^v\d+$/.test(parts[startIndex])) startIndex++;
+    const withExt = parts.slice(startIndex).join('/');
+    // Strip file extension
+    return withExt.replace(/\.[^/.]+$/, '');
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Deletes a list of Cloudinary image URLs from the CDN.
+ * Silently ignores failures (non-Cloudinary URLs, already-deleted, etc.)
+ */
+async function deleteFromCloudinary(imageUrls) {
+  await Promise.allSettled(
+    imageUrls
+      .map(extractPublicId)
+      .filter(Boolean)
+      .map((publicId) => cloudinary.uploader.destroy(publicId))
+  );
+}
 
 // Protect ALL product routes with JWT Authentication
 router.use(authenticateToken);
@@ -113,8 +151,13 @@ router.post('/', upload.array('images', 6), async (req, res) => {
       return res.status(400).json({ status: 'error', message: 'Stock quantity cannot be negative.' });
     }
 
-    // Process uploaded file paths
-    const uploadedImages = req.files ? req.files.map((file) => `/uploads/${file.filename}`) : [];
+    // Upload each file buffer to Cloudinary and collect the returned CDN URLs
+    let uploadedImages = [];
+    if (req.files && req.files.length > 0) {
+      uploadedImages = await Promise.all(
+        req.files.map((file) => uploadToCloudinary(file.buffer, file.mimetype))
+      );
+    }
 
     // Parse colors array if passed
     let parsedColors = [];
@@ -174,7 +217,7 @@ router.put('/:id', upload.array('images', 6), async (req, res) => {
       return res.status(400).json({ status: 'error', message: 'Please enter a valid positive price.' });
     }
 
-    // Parse kept images + new uploaded images
+    // Determine which existing images the client wants to keep
     let keptImages = [];
     if (existingImages) {
       try {
@@ -190,7 +233,25 @@ router.put('/:id', upload.array('images', 6), async (req, res) => {
       }
     }
 
-    const newUploaded = req.files ? req.files.map((file) => `/uploads/${file.filename}`) : [];
+    // Delete Cloudinary assets for images that were removed by the user
+    try {
+      const previousImages = existingProduct.images ? JSON.parse(existingProduct.images) : [];
+      const removedImages = previousImages.filter((url) => !keptImages.includes(url));
+      if (removedImages.length > 0) {
+        await deleteFromCloudinary(removedImages);
+      }
+    } catch (e) {
+      console.warn('Could not clean up removed images from Cloudinary:', e.message);
+    }
+
+    // Upload any newly added files to Cloudinary
+    let newUploaded = [];
+    if (req.files && req.files.length > 0) {
+      newUploaded = await Promise.all(
+        req.files.map((file) => uploadToCloudinary(file.buffer, file.mimetype))
+      );
+    }
+
     const combinedImages = [...keptImages, ...newUploaded].slice(0, 6);
 
     // Parse colors
@@ -236,7 +297,7 @@ router.put('/:id', upload.array('images', 6), async (req, res) => {
   }
 });
 
-// 4. DELETE PRODUCT
+// 4. DELETE PRODUCT (also cleans up Cloudinary assets)
 router.delete('/:id', async (req, res) => {
   try {
     const productId = req.params.id;
@@ -248,6 +309,16 @@ router.delete('/:id', async (req, res) => {
 
     if (!existingProduct) {
       return res.status(404).json({ status: 'error', message: 'Product not found or access denied.' });
+    }
+
+    // Delete images from Cloudinary before removing the DB record
+    try {
+      const images = existingProduct.images ? JSON.parse(existingProduct.images) : [];
+      if (images.length > 0) {
+        await deleteFromCloudinary(images);
+      }
+    } catch (e) {
+      console.warn('Could not clean up Cloudinary images for deleted product:', e.message);
     }
 
     await db.orm.public.Product.where({ id: productId }).delete();
