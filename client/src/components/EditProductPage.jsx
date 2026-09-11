@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import ProductCarousel from './ProductCarousel';
 import ColorPicker from './ColorPicker';
+import VariantMatrixEditor from './VariantMatrixEditor';
 import { translations, formatCurrency } from '../utils/i18n';
 
 function EditProductPage({ productId, user, lang, onBack, onSaveSuccess, onCurrencyChange, onLangChange }) {
@@ -19,6 +20,10 @@ function EditProductPage({ productId, user, lang, onBack, onSaveSuccess, onCurre
   const [price, setPrice] = useState('');
   const [stock, setStock] = useState('');
   const [colors, setColors] = useState([]);
+  const [variants, setVariants] = useState([]);
+  const [brand, setBrand] = useState('');
+  const [category, setCategory] = useState('');
+  const [vertical, setVertical] = useState('electronics');
   const [existingImages, setExistingImages] = useState([]);
   const [newFiles, setNewFiles] = useState([]);
   const [newPreviews, setNewPreviews] = useState([]);
@@ -42,6 +47,10 @@ function EditProductPage({ productId, user, lang, onBack, onSaveSuccess, onCurre
           setPrice(p.price !== undefined ? p.price : '');
           setStock(p.stock !== undefined ? p.stock : '');
           setColors(Array.isArray(p.colors) ? p.colors : []);
+          setVariants(Array.isArray(p.variants) ? p.variants : []);
+          setBrand(p.brand || '');
+          setCategory(p.category || '');
+          setVertical(p.vertical || user?.verticalSettings?.vertical || 'electronics');
           setExistingImages(Array.isArray(p.images) ? p.images : []);
         } else {
           setError(data.message || 'Failed to load product details.');
@@ -56,7 +65,7 @@ function EditProductPage({ productId, user, lang, onBack, onSaveSuccess, onCurre
     if (productId) {
       fetchProduct();
     }
-  }, [productId, token]);
+  }, [productId, token, user]);
 
   // Handle new files upload
   const handleFileChange = (e) => {
@@ -99,6 +108,13 @@ function EditProductPage({ productId, user, lang, onBack, onSaveSuccess, onCurre
       return;
     }
 
+    const effectivePrice = variants && variants.length > 0
+      ? Math.min(...variants.map((v) => parseFloat(v.price) || 0).filter((p) => p > 0)) || numPrice
+      : numPrice;
+    const effectiveStock = variants && variants.length > 0
+      ? variants.reduce((sum, v) => sum + (parseInt(v.stock, 10) || 0), 0)
+      : parseInt(stock || 0, 10);
+
     setSaving(true);
     try {
       let res;
@@ -106,10 +122,14 @@ function EditProductPage({ productId, user, lang, onBack, onSaveSuccess, onCurre
         const formData = new FormData();
         formData.append('name', name.trim());
         formData.append('description', description.trim());
-        formData.append('price', numPrice);
-        formData.append('stock', parseInt(stock || 0, 10));
+        formData.append('price', effectivePrice);
+        formData.append('stock', effectiveStock);
         formData.append('existingImages', JSON.stringify(existingImages));
         formData.append('colors', JSON.stringify(colors));
+        formData.append('variants', JSON.stringify(variants));
+        formData.append('brand', brand.trim());
+        formData.append('category', category.trim());
+        formData.append('vertical', vertical);
         newFiles.forEach((file) => formData.append('images', file));
 
         res = await fetch(`/api/products/${productId}`, {
@@ -127,10 +147,14 @@ function EditProductPage({ productId, user, lang, onBack, onSaveSuccess, onCurre
           body: JSON.stringify({
             name: name.trim(),
             description: description.trim(),
-            price: numPrice,
-            stock: parseInt(stock || 0, 10),
+            price: effectivePrice,
+            stock: effectiveStock,
             existingImages: existingImages,
             colors: colors,
+            variants: variants,
+            brand: brand.trim(),
+            category: category.trim(),
+            vertical: vertical,
           }),
         });
       }
@@ -346,11 +370,37 @@ function EditProductPage({ productId, user, lang, onBack, onSaveSuccess, onCurre
                 />
               </div>
 
-              {/* Price & Stock in 2 columns */}
+              {/* Brand & Category in 2 columns */}
+              <div className="form-row-2">
+                <div className="form-field">
+                  <label htmlFor="edit-brand">{isAr ? 'الماركة / البراند' : 'Brand / Manufacturer'}</label>
+                  <input
+                    id="edit-brand"
+                    type="text"
+                    value={brand}
+                    onChange={(e) => setBrand(e.target.value)}
+                    placeholder="e.g. Google, Nike, Zara, Artisan"
+                  />
+                </div>
+
+                <div className="form-field">
+                  <label htmlFor="edit-category">{isAr ? 'القسم / التصنيف' : 'Product Category'}</label>
+                  <input
+                    id="edit-category"
+                    type="text"
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    placeholder="e.g. Smartphones, Sneakers, Skincare"
+                  />
+                </div>
+              </div>
+
+              {/* Price & Stock summary */}
               <div className="form-row-2">
                 <div className="form-field">
                   <label htmlFor="edit-price">
                     {t.priceLabel} ({currentCurrency === 'EGP' ? 'ج.م' : '$'})
+                    {variants.length > 0 && <span className="helper-pill">{isAr ? 'يبدأ من' : 'Starting from'}</span>}
                   </label>
                   <div className="input-prefix-wrapper">
                     <span className="input-prefix">{currentCurrency === 'EGP' ? 'ج.م' : '$'}</span>
@@ -366,7 +416,10 @@ function EditProductPage({ productId, user, lang, onBack, onSaveSuccess, onCurre
                 </div>
 
                 <div className="form-field">
-                  <label htmlFor="edit-stock">{t.stockQtyLabel}</label>
+                  <label htmlFor="edit-stock">
+                    {t.stockQtyLabel}
+                    {variants.length > 0 && <span className="helper-pill">{isAr ? 'إجمالي المخزون' : 'Total in stock'}</span>}
+                  </label>
                   <input
                     id="edit-stock"
                     type="number"
@@ -377,17 +430,24 @@ function EditProductPage({ productId, user, lang, onBack, onSaveSuccess, onCurre
                 </div>
               </div>
 
-              {/* COLOR VARIANTS SECTION */}
-              <div className="form-field edit-color-field-wrap">
-                <label>
-                  {isAr ? 'الألوان المتوفرة في المخزون' : 'Available Color Variants'}
-                </label>
-                <p className="field-hint-sub">
-                  {isAr
-                    ? 'حدد الألوان التي تمتلكها لهذا الموديل لظهورها على بطاقة المنتج'
-                    : 'Select all color options in stock for this phone model to display on the card'}
-                </p>
-                <ColorPicker colors={colors} onChange={setColors} lang={lang} />
+              {/* MULTI-VERTICAL DYNAMIC VARIANTS MATRIX */}
+              <div className="form-field" style={{ marginTop: '0.5rem', marginBottom: '1.25rem' }}>
+                <VariantMatrixEditor
+                  variants={variants}
+                  onChangeVariants={(newVariants) => {
+                    setVariants(newVariants);
+                    if (newVariants.length > 0) {
+                      const prices = newVariants.map((v) => parseFloat(v.price)).filter((p) => !isNaN(p) && p > 0);
+                      if (prices.length > 0) setPrice(Math.min(...prices));
+                      const total = newVariants.reduce((sum, v) => sum + (parseInt(v.stock, 10) || 0), 0);
+                      setStock(total);
+                    }
+                  }}
+                  vertical={vertical}
+                  currency={currentCurrency}
+                  lang={lang}
+                  basePrice={price}
+                />
               </div>
 
               {/* Description */}

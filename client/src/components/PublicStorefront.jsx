@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { translations, formatCurrency } from '../utils/i18n';
 import ProductCarousel from './ProductCarousel';
 import NotFoundPage from './NotFoundPage';
+import DynamicVariantPicker from './DynamicVariantPicker';
+import { getVerticalPreset } from '../utils/verticalPresets';
 
 const IconCart = ({ size = 16, style = {} }) => (
   <svg
@@ -31,6 +33,7 @@ function PublicStorefront({ storeId, backToDashboard }) {
   const [copiedLink, setCopiedLink] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProduct, setSelectedProduct] = useState(null); // for Product Detail Modal
+  const [selectedVariant, setSelectedVariant] = useState(null); // dynamic variant selection
   const [modalSelectedColor, setModalSelectedColor] = useState(null);
   const [modalQty, setModalQty] = useState(1);
   const [showCartDrawer, setShowCartDrawer] = useState(false);
@@ -76,6 +79,9 @@ function PublicStorefront({ storeId, backToDashboard }) {
   // Open Product Detail Modal
   const openProductModal = (product) => {
     setSelectedProduct(product);
+    const initialVariant = Array.isArray(product.variants) && product.variants.length > 0 ? product.variants[0] : null;
+    setSelectedVariant(initialVariant);
+
     const firstColor = Array.isArray(product.colors) && product.colors.length > 0 ? product.colors[0] : null;
     setModalSelectedColor(firstColor);
     setModalQty(1);
@@ -83,14 +89,28 @@ function PublicStorefront({ storeId, backToDashboard }) {
 
   const closeProductModal = () => {
     setSelectedProduct(null);
+    setSelectedVariant(null);
     setModalSelectedColor(null);
     setModalQty(1);
   };
 
+  // Helper to format variant attributes into human-readable string
+  const formatVariantSpecs = (variant) => {
+    if (!variant || !variant.attributes) return '';
+    const parts = [];
+    Object.entries(variant.attributes).forEach(([k, v]) => {
+      const valStr = typeof v === 'object' && v.name ? v.name : String(v);
+      parts.push(`${k.toUpperCase()}: ${valStr}`);
+    });
+    return parts.join(' | ');
+  };
+
   // Add Item to Cart from Modal
-  const handleAddToCart = (product, color, qty) => {
-    const colorName = color ? color.name : 'Standard';
-    const cartItemId = `${product.id}-${colorName}`;
+  const handleAddToCart = (product, variant, color, qty) => {
+    const variantId = variant ? variant.id : (color ? `${product.id}-${color.name}` : product.id);
+    const itemPrice = variant ? variant.price : product.price;
+    const variantSpecs = variant ? formatVariantSpecs(variant) : (color ? `Color: ${color.name}` : 'Standard');
+    const cartItemId = `${product.id}-${variantId}`;
 
     setCart((prev) => {
       const existingIndex = prev.findIndex((item) => item.cartItemId === cartItemId);
@@ -99,7 +119,7 @@ function PublicStorefront({ storeId, backToDashboard }) {
         updated[existingIndex].qty += qty;
         return updated;
       }
-      return [...prev, { cartItemId, product, color, qty }];
+      return [...prev, { cartItemId, product, variant, color, qty, itemPrice, variantSpecs }];
     });
 
     closeProductModal();
@@ -121,50 +141,57 @@ function PublicStorefront({ storeId, backToDashboard }) {
     });
   };
 
-  // Direct 1-Click WhatsApp Order for a Single Product
-  const handleDirectWhatsAppOrder = (product, color, qty) => {
-    const colorText = color ? ` (${isAr ? 'اللون:' : 'Color:'} ${color.name})` : '';
-    const itemTotal = formatCurrency(product.price * qty, currency, lang);
+  // Direct 1-Click WhatsApp Order for a Single Product with Multi-Vertical Spec
+  const handleDirectWhatsAppOrder = (product, variant, color, qty) => {
+    const itemPrice = variant ? variant.price : product.price;
+    const itemTotal = formatCurrency(itemPrice * qty, currency, lang);
+    const specs = variant ? formatVariantSpecs(variant) : (color ? `اللون: ${color.name}` : '');
+    const specsText = specs ? `\n• المواصفات: [${specs}]` : '';
+    const specsTextEn = specs ? `\n• Specs: [${specs}]` : '';
 
     let message = '';
     if (isAr) {
       message = `مرحباً! أود طلب المنتج التالي من متجر *${store.storeName}*:\n\n`;
-      message += `*${product.name}*${colorText}\n`;
-      message += `الكمية: ${qty}\n`;
-      message += `السعر الإجمالي: ${itemTotal}\n\n`;
-      message += `يرجى تأكيد توفر المنتج وتزويدي بتفاصيل الدفع والتوصيل. شكراً!`;
+      message += `🛍️ *${product.name}*${specsText}\n`;
+      if (variant?.sku) message += `🔖 كود الموديل (SKU): ${variant.sku}\n`;
+      message += `📦 الكمية: ${qty}\n`;
+      message += `💵 السعر الإجمالي: ${itemTotal}\n\n`;
+      message += `يرجى تأكيد توفر المنتج والبدء في تجهيز الطلب. شكراً!`;
     } else {
-      message = `Hi! I would like to order from *${store.storeName}*:\n\n`;
-      message += `*${product.name}*${colorText}\n`;
-      message += `Quantity: ${qty}\n`;
-      message += `Total Price: ${itemTotal}\n\n`;
-      message += `Please confirm product availability, payment, and delivery details. Thank you!`;
+      message = `Hi! I would like to order the following from *${store.storeName}*:\n\n`;
+      message += `🛍️ *${product.name}*${specsTextEn}\n`;
+      if (variant?.sku) message += `🔖 SKU: ${variant.sku}\n`;
+      message += `📦 Quantity: ${qty}\n`;
+      message += `💵 Total Price: ${itemTotal}\n\n`;
+      message += `Please confirm product availability and shipping details. Thank you!`;
     }
 
     sendWhatsAppMessage(message);
   };
 
-  // WhatsApp Order for Entire Cart
+  // WhatsApp Order for Entire Cart with Variants Breakdown
   const handleCheckoutCartWhatsApp = () => {
     if (cart.length === 0) return;
-    const totalAmount = cart.reduce((acc, item) => acc + item.product.price * item.qty, 0);
+    const totalAmount = cart.reduce((acc, item) => acc + (item.itemPrice || item.product.price) * item.qty, 0);
 
     let message = '';
     if (isAr) {
-      message = `مرحباً! أود طلب المنتجات التالية من متجر *${store.storeName}*:\n\n`;
+      message = `مرحباً! أود طلب قائمة المنتجات التالية من متجر *${store.storeName}*:\n\n`;
       cart.forEach((item, i) => {
-        const colorText = item.color ? ` - اللون: ${item.color.name}` : '';
-        message += `${i + 1}. *${item.product.name}*${colorText} (${item.qty}x) = ${formatCurrency(item.product.price * item.qty, currency, 'ar')}\n`;
+        const specStr = item.variantSpecs ? ` (${item.variantSpecs})` : '';
+        const linePrice = formatCurrency((item.itemPrice || item.product.price) * item.qty, currency, 'ar');
+        message += `${i + 1}. *${item.product.name}*${specStr} - الكمية: ${item.qty} = ${linePrice}\n`;
       });
-      message += `\nإجمالي الطلب: ${formatCurrency(totalAmount, currency, 'ar')}\n\n`;
-      message += `يرجى تأكيد الطلب وتزويدي بتفاصيل التوصيل والدفع!`;
+      message += `\n💰 *إجمالي قيمة الطلب: ${formatCurrency(totalAmount, currency, 'ar')}*\n\n`;
+      message += `يرجى تأكيد الطلب وتزويدي برابط الدفع أو تفاصيل الشحن!`;
     } else {
-      message = `Hi! I would like to order the following from *${store.storeName}*:\n\n`;
+      message = `Hi! I would like to order the following items from *${store.storeName}*:\n\n`;
       cart.forEach((item, i) => {
-        const colorText = item.color ? ` - Color: ${item.color.name}` : '';
-        message += `${i + 1}. *${item.product.name}*${colorText} (${item.qty}x) = ${formatCurrency(item.product.price * item.qty, currency, 'en')}\n`;
+        const specStr = item.variantSpecs ? ` (${item.variantSpecs})` : '';
+        const linePrice = formatCurrency((item.itemPrice || item.product.price) * item.qty, currency, 'en');
+        message += `${i + 1}. *${item.product.name}*${specStr} - Qty: ${item.qty} = ${linePrice}\n`;
       });
-      message += `\nTotal Order Amount: ${formatCurrency(totalAmount, currency, 'en')}\n\n`;
+      message += `\n💰 *Total Order Amount: ${formatCurrency(totalAmount, currency, 'en')}*\n\n`;
       message += `Please confirm my order and share delivery & payment details!`;
     }
 
@@ -215,7 +242,9 @@ function PublicStorefront({ storeId, backToDashboard }) {
   }
 
   const totalCartCount = cart.reduce((acc, item) => acc + item.qty, 0);
-  const totalCartAmount = cart.reduce((acc, item) => acc + item.product.price * item.qty, 0);
+  const totalCartAmount = cart.reduce((acc, item) => acc + (item.itemPrice || item.product.price) * item.qty, 0);
+
+  const storePreset = getVerticalPreset(store?.verticalSettings?.vertical || 'electronics');
 
   const filteredProducts = products.filter(
     (p) =>
@@ -230,9 +259,14 @@ function PublicStorefront({ storeId, backToDashboard }) {
         <div className="navbar-container">
           <div className="navbar-brand">
             <div>
-              <h1 className="brand-title">{store.storeName}</h1>
-              <span className="badge badge-success" style={{ marginTop: '0.2rem' }}>
-                {isAr ? 'متجر موثق' : 'Verified Store'}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <h1 className="brand-title">{store.storeName}</h1>
+                <span className="badge badge-success">
+                  {isAr ? 'متجر موثق' : 'Verified Store'}
+                </span>
+              </div>
+              <span className="store-vertical-tag">
+                {storePreset.icon} {isAr ? (storePreset.nameAr || storePreset.name) : storePreset.name}
               </span>
             </div>
           </div>
@@ -295,8 +329,8 @@ function PublicStorefront({ storeId, backToDashboard }) {
             <h2 className="hero-store-title">{store.storeName}</h2>
             <p className="hero-store-subtitle">
               {isAr
-                ? 'تصفح أحدث الأجهزة والموديلات واختر لونك المفضل واطلب مباشرة عبر الواتساب'
-                : 'Browse our devices, select your color variant, and order directly via WhatsApp'}
+                ? (storePreset.descriptionAr || 'تصفح أحدث المنتجات والموديلات واختر مواصفاتك واطلب مباشرة عبر الواتساب')
+                : (storePreset.description || 'Browse our catalog, choose your preferred variant, and order directly via WhatsApp')}
             </p>
             {store.whatsappNumber && (
               <span className="hero-whatsapp-badge">
@@ -451,120 +485,147 @@ function PublicStorefront({ storeId, backToDashboard }) {
                 />
               </div>
 
-              {/* Right: Info, Colors, Quantity, Pricing & Order CTA */}
+              {/* Right: Info, Dynamic Variants, Quantity, Pricing & Order CTA */}
               <div className="modal-detail-info">
-                <div className="modal-price-stock-row">
-                  <div className="modal-price-tag font-emerald">
-                    {formatCurrency(selectedProduct.price, currency, lang)}
-                  </div>
-                  <span className="public-stock-tag large">
-                    <span className={`status-dot ${selectedProduct.stock > 0 ? 'in-stock' : 'out-stock'}`} />
-                    {selectedProduct.stock > 0 ? `${selectedProduct.stock} ${t.inStock}` : t.outOfStock}
-                  </span>
-                </div>
+                {(() => {
+                  const activePrice = selectedVariant ? selectedVariant.price : selectedProduct.price;
+                  const activeStock = selectedVariant ? selectedVariant.stock : selectedProduct.stock;
+                  const hasVariants = Array.isArray(selectedProduct.variants) && selectedProduct.variants.length > 0;
 
-                {/* Description / Specs */}
-                {selectedProduct.description && (
-                  <div className="modal-desc-box">
-                    <h5 className="modal-desc-heading">{isAr ? 'المواصفات والتفاصيل:' : 'Specifications & Details:'}</h5>
-                    <p className="modal-desc-text">{selectedProduct.description}</p>
-                  </div>
-                )}
+                  return (
+                    <>
+                      <div className="modal-price-stock-row">
+                        <div className="modal-price-tag font-emerald">
+                          {formatCurrency(activePrice, currency, lang)}
+                        </div>
+                        {selectedVariant?.compareAtPrice && selectedVariant.compareAtPrice > activePrice && (
+                          <span className="modal-compare-price">
+                            {formatCurrency(selectedVariant.compareAtPrice, currency, lang)}
+                          </span>
+                        )}
+                        <span className="public-stock-tag large">
+                          <span className={`status-dot ${activeStock > 0 ? 'in-stock' : 'out-stock'}`} />
+                          {activeStock > 0 ? `${activeStock} ${t.inStock}` : t.outOfStock}
+                        </span>
+                      </div>
 
-                {/* COLOR SELECTION SECTION */}
-                {Array.isArray(selectedProduct.colors) && selectedProduct.colors.length > 0 && (
-                  <div className="modal-color-selector-section">
-                    <label className="modal-selector-label">
-                      {isAr ? 'اختر اللون المطلوب:' : 'Select Color:'}
-                      {modalSelectedColor && (
-                        <strong className="selected-color-name"> {modalSelectedColor.name}</strong>
+                      {/* Description / Specs */}
+                      {selectedProduct.description && (
+                        <div className="modal-desc-box">
+                          <h5 className="modal-desc-heading">{isAr ? 'المواصفات والتفاصيل:' : 'Specifications & Details:'}</h5>
+                          <p className="modal-desc-text">{selectedProduct.description}</p>
+                        </div>
                       )}
-                    </label>
 
-                    <div className="modal-color-swatches-grid">
-                      {selectedProduct.colors.map((c, idx) => {
-                        const isSelected =
-                          modalSelectedColor && modalSelectedColor.name === c.name;
-                        return (
-                          <button
-                            key={idx}
-                            type="button"
-                            className={`modal-color-btn ${isSelected ? 'active' : ''}`}
-                            onClick={() => setModalSelectedColor(c)}
-                          >
-                            <span
-                              className="modal-color-dot"
-                              style={{
-                                backgroundColor: c.hex,
-                                border:
-                                  c.hex?.toLowerCase() === '#ffffff' || c.hex?.toLowerCase() === '#f5f0eb'
-                                    ? '1px solid #d1d5db'
-                                    : '1px solid rgba(0,0,0,0.15)',
-                              }}
-                            />
-                            <span className="modal-color-btn-name">{c.name}</span>
-                            {isSelected && <span className="color-check">✓</span>}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
+                      {/* DYNAMIC VARIANT PICKER */}
+                      {hasVariants ? (
+                        <DynamicVariantPicker
+                          variants={selectedProduct.variants}
+                          selectedVariant={selectedVariant}
+                          onSelectVariant={(v) => setSelectedVariant(v)}
+                          currency={currency}
+                          lang={lang}
+                          vertical={store?.verticalSettings?.vertical || 'electronics'}
+                          enabledModules={store?.verticalSettings?.enabledModules || []}
+                        />
+                      ) : (
+                        /* Legacy Color Selector Fallback */
+                        Array.isArray(selectedProduct.colors) && selectedProduct.colors.length > 0 && (
+                          <div className="modal-color-selector-section">
+                            <label className="modal-selector-label">
+                              {isAr ? 'اختر اللون المطلوب:' : 'Select Color:'}
+                              {modalSelectedColor && (
+                                <strong className="selected-color-name"> {modalSelectedColor.name}</strong>
+                              )}
+                            </label>
 
-                {/* QUANTITY SELECTOR */}
-                <div className="modal-qty-section">
-                  <label className="modal-selector-label">{isAr ? 'الكمية:' : 'Quantity:'}</label>
-                  <div className="modal-qty-control-row">
-                    <div className="cart-qty-controls large">
-                      <button
-                        type="button"
-                        className="qty-btn"
-                        onClick={() => setModalQty((q) => Math.max(1, q - 1))}
-                        disabled={modalQty <= 1}
-                      >
-                        -
-                      </button>
-                      <span className="qty-number">{modalQty}</span>
-                      <button
-                        type="button"
-                        className="qty-btn"
-                        onClick={() => setModalQty((q) => Math.min(selectedProduct.stock || 100, q + 1))}
-                        disabled={modalQty >= (selectedProduct.stock || 1)}
-                      >
-                        +
-                      </button>
-                    </div>
+                            <div className="modal-color-swatches-grid">
+                              {selectedProduct.colors.map((c, idx) => {
+                                const isSelected = modalSelectedColor && modalSelectedColor.name === c.name;
+                                return (
+                                  <button
+                                    key={idx}
+                                    type="button"
+                                    className={`modal-color-btn ${isSelected ? 'active' : ''}`}
+                                    onClick={() => setModalSelectedColor(c)}
+                                  >
+                                    <span
+                                      className="modal-color-dot"
+                                      style={{
+                                        backgroundColor: c.hex,
+                                        border:
+                                          c.hex?.toLowerCase() === '#ffffff' || c.hex?.toLowerCase() === '#f5f0eb'
+                                            ? '1px solid #d1d5db'
+                                            : '1px solid rgba(0,0,0,0.15)',
+                                      }}
+                                    />
+                                    <span className="modal-color-btn-name">{c.name}</span>
+                                    {isSelected && <span className="color-check">✓</span>}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )
+                      )}
 
-                    <div className="modal-subtotal-box">
-                      <span className="subtotal-label">{isAr ? 'الإجمالي:' : 'Subtotal:'}</span>
-                      <strong className="subtotal-amount font-emerald">
-                        {formatCurrency(selectedProduct.price * modalQty, currency, lang)}
-                      </strong>
-                    </div>
-                  </div>
-                </div>
+                      {/* QUANTITY SELECTOR */}
+                      <div className="modal-qty-section">
+                        <label className="modal-selector-label">{isAr ? 'الكمية:' : 'Quantity:'}</label>
+                        <div className="modal-qty-control-row">
+                          <div className="cart-qty-controls large">
+                            <button
+                              type="button"
+                              className="qty-btn"
+                              onClick={() => setModalQty((q) => Math.max(1, q - 1))}
+                              disabled={modalQty <= 1}
+                            >
+                              -
+                            </button>
+                            <span className="qty-number">{modalQty}</span>
+                            <button
+                              type="button"
+                              className="qty-btn"
+                              onClick={() => setModalQty((q) => Math.min(activeStock || 100, q + 1))}
+                              disabled={modalQty >= (activeStock || 1)}
+                            >
+                              +
+                            </button>
+                          </div>
 
-                {/* ACTIONS: DIRECT WHATSAPP ORDER & ADD TO CART */}
-                <div className="modal-action-buttons">
-                  <button
-                    type="button"
-                    className="btn-direct-whatsapp-cta"
-                    disabled={selectedProduct.stock <= 0}
-                    onClick={() => handleDirectWhatsAppOrder(selectedProduct, modalSelectedColor, modalQty)}
-                  >
-                    {isAr ? 'طلب عبر الواتساب' : 'Order via WhatsApp'}
-                  </button>
+                          <div className="modal-subtotal-box">
+                            <span className="subtotal-label">{isAr ? 'الإجمالي:' : 'Subtotal:'}</span>
+                            <strong className="subtotal-amount font-emerald">
+                              {formatCurrency(activePrice * modalQty, currency, lang)}
+                            </strong>
+                          </div>
+                        </div>
+                      </div>
 
-                  <button
-                    type="button"
-                    className="btn-add-to-cart-cta"
-                    disabled={selectedProduct.stock <= 0}
-                    onClick={() => handleAddToCart(selectedProduct, modalSelectedColor, modalQty)}
-                  >
-                    <IconCart size={16} style={{ marginRight: isAr ? 0 : '0.4rem', marginLeft: isAr ? '0.4rem' : 0 }} />
-                    {isAr ? 'إضافة إلى السلة' : 'Add to Cart'}
-                  </button>
-                </div>
+                      {/* ACTIONS: DIRECT WHATSAPP ORDER & ADD TO CART */}
+                      <div className="modal-action-buttons">
+                        <button
+                          type="button"
+                          className="btn-direct-whatsapp-cta"
+                          disabled={activeStock <= 0}
+                          onClick={() => handleDirectWhatsAppOrder(selectedProduct, selectedVariant, modalSelectedColor, modalQty)}
+                        >
+                          {isAr ? 'طلب عبر الواتساب' : 'Order via WhatsApp'}
+                        </button>
+
+                        <button
+                          type="button"
+                          className="btn-add-to-cart-cta"
+                          disabled={activeStock <= 0}
+                          onClick={() => handleAddToCart(selectedProduct, selectedVariant, modalSelectedColor, modalQty)}
+                        >
+                          <IconCart size={16} style={{ marginRight: isAr ? 0 : '0.4rem', marginLeft: isAr ? '0.4rem' : 0 }} />
+                          {isAr ? 'إضافة إلى السلة' : 'Add to Cart'}
+                        </button>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
             </div>
           </div>
@@ -602,7 +663,13 @@ function PublicStorefront({ storeId, backToDashboard }) {
                     <div key={item.cartItemId} className="cart-drawer-item-card">
                       <div className="cart-drawer-item-info">
                         <strong className="cart-item-title">{item.product.name}</strong>
-                        {item.color && (
+                        {item.variantSpecs && (
+                          <div className="cart-item-variant-spec">{item.variantSpecs}</div>
+                        )}
+                        {item.variant?.sku && (
+                          <span className="cart-item-sku-badge">SKU: {item.variant.sku}</span>
+                        )}
+                        {!item.variantSpecs && item.color && (
                           <div className="cart-item-color-pill">
                             <span
                               className="card-color-dot"
@@ -612,7 +679,7 @@ function PublicStorefront({ storeId, backToDashboard }) {
                           </div>
                         )}
                         <span className="cart-item-single-price">
-                          {formatCurrency(item.product.price, currency, lang)}
+                          {formatCurrency(item.itemPrice || item.product.price, currency, lang)}
                         </span>
                       </div>
 
@@ -630,13 +697,13 @@ function PublicStorefront({ storeId, backToDashboard }) {
                             type="button"
                             className="qty-btn"
                             onClick={() => updateCartItemQty(item.cartItemId, 1)}
-                            disabled={item.qty >= item.product.stock}
+                            disabled={item.qty >= ((item.variant?.stock) || item.product.stock || 999)}
                           >
                             +
                           </button>
                         </div>
                         <strong className="cart-item-total font-emerald">
-                          {formatCurrency(item.product.price * item.qty, currency, lang)}
+                          {formatCurrency((item.itemPrice || item.product.price) * item.qty, currency, lang)}
                         </strong>
                       </div>
                     </div>

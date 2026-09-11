@@ -3,6 +3,11 @@ import multer from 'multer';
 import { db } from '../db.js';
 import { authenticateToken } from '../middleware/auth.js';
 import cloudinary from '../cloudinary.js';
+import {
+  normalizeProductWithVariants,
+  packageVariantsForStorage,
+  getSellerVerticalSettings,
+} from '../services/verticalService.js';
 
 const router = express.Router();
 
@@ -90,15 +95,13 @@ router.use(authenticateToken);
 // 1. GET ALL PRODUCTS FOR LOGGED-IN SELLER
 router.get('/', async (req, res) => {
   try {
+    const verticalSettings = getSellerVerticalSettings(req.user.id);
     const products = await db.orm.public.Product.where({ userId: req.user.id }).all();
-    const formatted = products.map((p) => ({
-      ...p,
-      images: p.images ? JSON.parse(p.images) : [],
-      colors: p.colors ? JSON.parse(p.colors) : [],
-    }));
+    const formatted = products.map((p) => normalizeProductWithVariants(p, verticalSettings.vertical));
 
     res.json({
       status: 'success',
+      verticalSettings,
       products: formatted,
     });
   } catch (error) {
@@ -110,6 +113,7 @@ router.get('/', async (req, res) => {
 // 1.5 GET SINGLE PRODUCT BY ID (FOR DEDICATED EDIT PAGE)
 router.get('/:id', async (req, res) => {
   try {
+    const verticalSettings = getSellerVerticalSettings(req.user.id);
     const product = await db.orm.public.Product
       .where({ id: req.params.id, userId: req.user.id })
       .first();
@@ -118,13 +122,12 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ status: 'error', message: 'Product not found or access denied.' });
     }
 
+    const formatted = normalizeProductWithVariants(product, verticalSettings.vertical);
+
     res.json({
       status: 'success',
-      product: {
-        ...product,
-        images: product.images ? JSON.parse(product.images) : [],
-        colors: product.colors ? JSON.parse(product.colors) : [],
-      },
+      verticalSettings,
+      product: formatted,
     });
   } catch (error) {
     console.error('Fetch Single Product Error:', error);
@@ -132,31 +135,23 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// 2. CREATE A NEW PRODUCT WITH UP TO 6 UPLOADED PHOTOS & COLORS
+// 2. CREATE A NEW PRODUCT WITH UP TO 6 UPLOADED PHOTOS & DYNAMIC VARIANTS
 router.post('/', upload.array('images', 6), async (req, res) => {
   try {
-    const { name, description, price, stock, colors } = req.body;
+    const { name, description, price, stock, colors, variants, brand, category, vertical } = req.body;
 
     if (!name || name.trim().length === 0) {
       return res.status(400).json({ status: 'error', message: 'Product name is required.' });
     }
 
-    const numericPrice = parseFloat(price);
-    if (isNaN(numericPrice) || numericPrice <= 0) {
-      return res.status(400).json({ status: 'error', message: 'Please enter a valid positive price.' });
-    }
-
-    const numericStock = parseInt(stock, 10);
-    if (isNaN(numericStock) || numericStock < 0) {
-      return res.status(400).json({ status: 'error', message: 'Stock quantity cannot be negative.' });
-    }
-
-    // Upload each file buffer to Cloudinary and collect the returned CDN URLs
-    let uploadedImages = [];
-    if (req.files && req.files.length > 0) {
-      uploadedImages = await Promise.all(
-        req.files.map((file) => uploadToCloudinary(file.buffer, file.mimetype))
-      );
+    // Parse variants if passed
+    let parsedVariants = [];
+    if (variants) {
+      try {
+        parsedVariants = typeof variants === 'string' ? JSON.parse(variants) : variants;
+      } catch (e) {
+        parsedVariants = [];
+      }
     }
 
     // Parse colors array if passed
@@ -169,6 +164,43 @@ router.post('/', upload.array('images', 6), async (req, res) => {
       }
     }
 
+    let numericPrice = parseFloat(price);
+    let numericStock = parseInt(stock, 10);
+
+    // If variants are supplied, compute prices & stock from variants
+    if (parsedVariants && parsedVariants.length > 0) {
+      const validPrices = parsedVariants.map(v => parseFloat(v.price)).filter(p => !isNaN(p) && p > 0);
+      numericPrice = validPrices.length > 0 ? Math.min(...validPrices) : (parseFloat(price) || 0);
+      numericStock = parsedVariants.reduce((sum, v) => sum + (parseInt(v.stock, 10) || 0), 0);
+    } else {
+      if (isNaN(numericPrice) || numericPrice <= 0) {
+        return res.status(400).json({ status: 'error', message: 'Please enter a valid positive price.' });
+      }
+      if (isNaN(numericStock) || numericStock < 0) {
+        return res.status(400).json({ status: 'error', message: 'Stock quantity cannot be negative.' });
+      }
+    }
+
+    // Upload each file buffer to Cloudinary and collect the returned CDN URLs
+    let uploadedImages = [];
+    if (req.files && req.files.length > 0) {
+      uploadedImages = await Promise.all(
+        req.files.map((file) => uploadToCloudinary(file.buffer, file.mimetype))
+      );
+    }
+
+    const sellerVerticalSettings = getSellerVerticalSettings(req.user.id);
+    const activeVertical = vertical || sellerVerticalSettings.vertical || 'electronics';
+
+    // Package variants into storage
+    const storagePayload = packageVariantsForStorage({
+      variants: parsedVariants,
+      brand: brand ? brand.trim() : '',
+      category: category ? category.trim() : '',
+      vertical: activeVertical,
+      legacyColors: parsedColors,
+    });
+
     // Create Product linked strictly to req.user.id
     const newProduct = await db.orm.public.Product.create({
       name: name.trim(),
@@ -176,18 +208,16 @@ router.post('/', upload.array('images', 6), async (req, res) => {
       price: numericPrice,
       stock: numericStock,
       images: JSON.stringify(uploadedImages),
-      colors: JSON.stringify(parsedColors),
+      colors: storagePayload,
       userId: req.user.id,
     });
 
+    const normalized = normalizeProductWithVariants(newProduct, activeVertical);
+
     res.status(201).json({
       status: 'success',
-      message: 'Product created successfully!',
-      product: {
-        ...newProduct,
-        images: uploadedImages,
-        colors: parsedColors,
-      },
+      message: 'Product created successfully with multi-vertical variants!',
+      product: normalized,
     });
   } catch (error) {
     console.error('Create Product Error:', error);
@@ -195,11 +225,11 @@ router.post('/', upload.array('images', 6), async (req, res) => {
   }
 });
 
-// 3. UPDATE PRODUCT DETAILS, PHOTOS & COLORS
+// 3. UPDATE PRODUCT DETAILS, PHOTOS & DYNAMIC VARIANTS
 router.put('/:id', upload.array('images', 6), async (req, res) => {
   try {
     const productId = req.params.id;
-    const { name, description, price, stock, existingImages, colors } = req.body;
+    const { name, description, price, stock, existingImages, colors, variants, brand, category, vertical } = req.body;
 
     // Verify ownership
     const existingProduct = await db.orm.public.Product
@@ -210,8 +240,34 @@ router.put('/:id', upload.array('images', 6), async (req, res) => {
       return res.status(404).json({ status: 'error', message: 'Product not found or access denied.' });
     }
 
-    const numericPrice = price !== undefined ? parseFloat(price) : existingProduct.price;
-    const numericStock = stock !== undefined ? parseInt(stock, 10) : existingProduct.stock;
+    // Parse variants if provided
+    let parsedVariants = null;
+    if (variants !== undefined) {
+      try {
+        parsedVariants = typeof variants === 'string' ? JSON.parse(variants) : variants;
+      } catch (e) {
+        parsedVariants = null;
+      }
+    }
+
+    // Parse colors
+    let finalColors = [];
+    if (colors !== undefined) {
+      try {
+        finalColors = typeof colors === 'string' ? JSON.parse(colors) : colors;
+      } catch (e) {
+        finalColors = [];
+      }
+    }
+
+    let numericPrice = price !== undefined ? parseFloat(price) : existingProduct.price;
+    let numericStock = stock !== undefined ? parseInt(stock, 10) : existingProduct.stock;
+
+    if (parsedVariants && parsedVariants.length > 0) {
+      const validPrices = parsedVariants.map(v => parseFloat(v.price)).filter(p => !isNaN(p) && p > 0);
+      numericPrice = validPrices.length > 0 ? Math.min(...validPrices) : numericPrice;
+      numericStock = parsedVariants.reduce((sum, v) => sum + (parseInt(v.stock, 10) || 0), 0);
+    }
 
     if (isNaN(numericPrice) || numericPrice <= 0) {
       return res.status(400).json({ status: 'error', message: 'Please enter a valid positive price.' });
@@ -254,20 +310,21 @@ router.put('/:id', upload.array('images', 6), async (req, res) => {
 
     const combinedImages = [...keptImages, ...newUploaded].slice(0, 6);
 
-    // Parse colors
-    let finalColors = [];
-    if (colors !== undefined) {
-      try {
-        finalColors = typeof colors === 'string' ? JSON.parse(colors) : colors;
-      } catch (e) {
-        finalColors = [];
-      }
+    const sellerVerticalSettings = getSellerVerticalSettings(req.user.id);
+    const activeVertical = vertical || sellerVerticalSettings.vertical || 'electronics';
+
+    // Package variants
+    let storageColorsPayload;
+    if (parsedVariants !== null) {
+      storageColorsPayload = packageVariantsForStorage({
+        variants: parsedVariants,
+        brand: brand !== undefined ? brand : '',
+        category: category !== undefined ? category : '',
+        vertical: activeVertical,
+        legacyColors: finalColors,
+      });
     } else {
-      try {
-        finalColors = existingProduct.colors ? JSON.parse(existingProduct.colors) : [];
-      } catch (e) {
-        finalColors = [];
-      }
+      storageColorsPayload = existingProduct.colors;
     }
 
     // Perform Update
@@ -279,17 +336,15 @@ router.put('/:id', upload.array('images', 6), async (req, res) => {
         price: numericPrice,
         stock: numericStock,
         images: JSON.stringify(combinedImages),
-        colors: JSON.stringify(finalColors),
+        colors: storageColorsPayload,
       });
+
+    const normalized = normalizeProductWithVariants(updatedProduct, activeVertical);
 
     res.json({
       status: 'success',
       message: 'Product updated successfully!',
-      product: {
-        ...updatedProduct,
-        images: combinedImages,
-        colors: finalColors,
-      },
+      product: normalized,
     });
   } catch (error) {
     console.error('Update Product Error:', error);

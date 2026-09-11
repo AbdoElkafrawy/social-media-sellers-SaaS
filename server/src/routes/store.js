@@ -1,5 +1,6 @@
 import express from 'express';
 import { db } from '../db.js';
+import { normalizeProductWithVariants, getSellerVerticalSettings } from '../services/verticalService.js';
 
 const router = express.Router();
 
@@ -18,14 +19,12 @@ router.get('/:id', async (req, res) => {
       });
     }
 
+    const verticalSettings = getSellerVerticalSettings(seller.id);
+
     // Fetch Seller's Products
     const products = await db.orm.public.Product.where({ userId: seller.id }).all();
 
-    const formattedProducts = products.map((p) => ({
-      ...p,
-      images: p.images ? JSON.parse(p.images) : [],
-      colors: p.colors ? JSON.parse(p.colors) : [],
-    }));
+    const formattedProducts = products.map((p) => normalizeProductWithVariants(p, verticalSettings.vertical));
 
     res.json({
       status: 'success',
@@ -35,6 +34,7 @@ router.get('/:id', async (req, res) => {
         currency: seller.currency || 'EGP',
         email: seller.email,
         whatsappNumber: seller.whatsappNumber || '',
+        verticalSettings,
       },
       products: formattedProducts || [],
     });

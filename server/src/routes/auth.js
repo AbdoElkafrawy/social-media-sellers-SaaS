@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import { db } from '../db.js';
 import { authenticateToken, loginRateLimiter } from '../middleware/auth.js';
 import { sendResetEmail } from '../mailer.js';
+import { getSellerVerticalSettings, updateSellerVerticalSettings } from '../services/verticalService.js';
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_key_change_in_prod';
@@ -137,6 +138,8 @@ router.get('/me', authenticateToken, async (req, res) => {
       return res.status(404).json({ status: 'error', message: 'User not found.' });
     }
 
+    const verticalSettings = getSellerVerticalSettings(user.id);
+
     res.json({
       status: 'success',
       user: {
@@ -146,10 +149,35 @@ router.get('/me', authenticateToken, async (req, res) => {
         currency: user.currency || 'EGP',
         whatsappNumber: user.whatsappNumber || '',
         createdAt: user.createdAt,
+        verticalSettings,
       },
     });
   } catch (error) {
     res.status(500).json({ status: 'error', message: 'Server error fetching user profile.' });
+  }
+});
+
+// 3.5 GET & UPDATE VERTICAL PRESET SETTINGS
+router.get('/vertical-settings', authenticateToken, async (req, res) => {
+  try {
+    const settings = getSellerVerticalSettings(req.user.id);
+    res.json({ status: 'success', settings });
+  } catch (error) {
+    res.status(500).json({ status: 'error', message: 'Failed to fetch vertical settings.' });
+  }
+});
+
+router.put('/vertical-settings', authenticateToken, async (req, res) => {
+  try {
+    const { vertical, enabledModules, customAttributes } = req.body;
+    const settings = updateSellerVerticalSettings(req.user.id, { vertical, enabledModules, customAttributes });
+    res.json({
+      status: 'success',
+      message: 'Vertical settings updated successfully!',
+      settings,
+    });
+  } catch (error) {
+    res.status(500).json({ status: 'error', message: 'Failed to update vertical settings.' });
   }
 });
 

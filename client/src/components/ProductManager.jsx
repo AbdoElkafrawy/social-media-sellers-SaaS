@@ -3,6 +3,9 @@ import { translations, formatCurrency } from '../utils/i18n';
 import ProductCarousel from './ProductCarousel';
 import ColorPicker from './ColorPicker';
 import SellerAnalytics from './SellerAnalytics';
+import VariantMatrixEditor from './VariantMatrixEditor';
+import VerticalSettingsModal from './VerticalSettingsModal';
+import { getVerticalPreset } from '../utils/verticalPresets';
 
 // ── Icon Components ───────────────────────────────────────────────────────────
 const IconEdit = () => (
@@ -35,6 +38,10 @@ function ProductManager({ user, lang, onNavigateEdit }) {
   const [successMsg, setSuccessMsg]   = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab]     = useState('inventory'); // 'inventory' | 'analytics'
+  const [verticalSettings, setVerticalSettings] = useState(
+    user?.verticalSettings || { vertical: 'electronics', enabledModules: [] }
+  );
+  const [isVerticalModalOpen, setIsVerticalModalOpen] = useState(false);
 
   // ── Add Product Form State ─────────────────────────────────────────────────
   const [name, setName]               = useState('');
@@ -42,6 +49,9 @@ function ProductManager({ user, lang, onNavigateEdit }) {
   const [price, setPrice]             = useState('');
   const [stock, setStock]             = useState('');
   const [colors, setColors]           = useState([]);
+  const [variants, setVariants]       = useState([]);
+  const [brand, setBrand]             = useState('');
+  const [category, setCategory]       = useState('');
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [filePreviews, setFilePreviews]   = useState([]);
   const [adding, setAdding]           = useState(false);
@@ -69,6 +79,9 @@ function ProductManager({ user, lang, onNavigateEdit }) {
       const data = await res.json();
       if (data.status === 'success') {
         setProducts(data.products || []);
+        if (data.verticalSettings) {
+          setVerticalSettings(data.verticalSettings);
+        }
       } else {
         setError(data.message || 'Failed to load products.');
       }
@@ -81,6 +94,23 @@ function ProductManager({ user, lang, onNavigateEdit }) {
 
   useEffect(() => { fetchProducts(); }, []);
 
+  // ── Save Vertical Blueprint Settings ──────────────────────────────────────
+  const handleSaveVerticalSettings = async (newSettings) => {
+    const res = await fetch('/api/auth/vertical-settings', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(newSettings),
+    });
+    const data = await res.json();
+    if (data.status === 'success' && data.settings) {
+      setVerticalSettings(data.settings);
+      fetchProducts();
+    }
+  };
+
   // ── KPIs ───────────────────────────────────────────────────────────────────
   const totalProducts  = products.length;
   const totalStock     = products.reduce((acc, p) => acc + (Number(p.stock) || 0), 0);
@@ -90,20 +120,37 @@ function ProductManager({ user, lang, onNavigateEdit }) {
     (p.description && p.description.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  // ── Add Product ────────────────────────────────────────────────────
+  // ── Add Product with Dynamic Variants Support ─────────────────────────────
   const handleAddProduct = async (e) => {
     e.preventDefault();
     setError(''); setSuccessMsg('');
     if (!name.trim()) { setError(isAr ? 'يرجى إدخال اسم المنتج' : 'Please enter a product name.'); return; }
-    if (!price || parseFloat(price) <= 0) { setError(isAr ? 'يرجى إدخال سعر صحيح' : 'Please enter a valid price.'); return; }
+    
+    const effectivePrice = variants && variants.length > 0
+      ? Math.min(...variants.map(v => parseFloat(v.price) || 0).filter(p => p > 0)) || parseFloat(price)
+      : parseFloat(price);
+
+    const effectiveStock = variants && variants.length > 0
+      ? variants.reduce((sum, v) => sum + (parseInt(v.stock, 10) || 0), 0)
+      : parseInt(stock || 0, 10);
+
+    if (isNaN(effectivePrice) || effectivePrice <= 0) {
+      setError(isAr ? 'يرجى إدخال سعر صحيح' : 'Please enter a valid price.');
+      return;
+    }
+
     setAdding(true);
     try {
       const formData = new FormData();
       formData.append('name', name.trim());
       formData.append('description', description.trim());
-      formData.append('price', parseFloat(price));
-      formData.append('stock', parseInt(stock || 0, 10));
+      formData.append('price', effectivePrice);
+      formData.append('stock', effectiveStock);
       formData.append('colors', JSON.stringify(colors));
+      formData.append('variants', JSON.stringify(variants));
+      formData.append('brand', brand.trim());
+      formData.append('category', category.trim());
+      formData.append('vertical', verticalSettings.vertical || 'electronics');
       selectedFiles.forEach(f => formData.append('images', f));
 
       const res  = await fetch('/api/products', {
@@ -115,6 +162,7 @@ function ProductManager({ user, lang, onNavigateEdit }) {
       if (data.status === 'success') {
         setSuccessMsg(isAr ? `تم إضافة "${data.product.name}" بنجاح!` : `"${data.product.name}" added!`);
         setName(''); setDescription(''); setPrice(''); setStock(''); setColors([]);
+        setVariants([]); setBrand(''); setCategory('');
         setSelectedFiles([]); setFilePreviews([]);
         fetchProducts();
         setTimeout(() => setSuccessMsg(''), 4000);
@@ -209,22 +257,43 @@ function ProductManager({ user, lang, onNavigateEdit }) {
         </div>
       </section>
 
-      {/* DASHBOARD TAB NAVIGATION */}
+      {/* DASHBOARD TAB NAVIGATION & VERTICAL BLUEPRINT SWITCH */}
       <div className="dashboard-tabs-bar">
-        <button
-          type="button"
-          className={`dashboard-tab-btn ${activeTab === 'inventory' ? 'active' : ''}`}
-          onClick={() => setActiveTab('inventory')}
-        >
-          {isAr ? 'إدارة المنتجات والمخزون' : 'Inventory & Catalog'}
-        </button>
-        <button
-          type="button"
-          className={`dashboard-tab-btn ${activeTab === 'analytics' ? 'active' : ''}`}
-          onClick={() => setActiveTab('analytics')}
-        >
-          {isAr ? 'تحليلات الإيرادات ونمو الأعمال' : 'Revenue & Business Intelligence'}
-        </button>
+        <div className="tabs-nav-group">
+          <button
+            type="button"
+            className={`dashboard-tab-btn ${activeTab === 'inventory' ? 'active' : ''}`}
+            onClick={() => setActiveTab('inventory')}
+          >
+            {isAr ? 'إدارة المنتجات والمخزون' : 'Inventory & Catalog'}
+          </button>
+          <button
+            type="button"
+            className={`dashboard-tab-btn ${activeTab === 'analytics' ? 'active' : ''}`}
+            onClick={() => setActiveTab('analytics')}
+          >
+            {isAr ? 'تحليلات الإيرادات ونمو الأعمال' : 'Revenue & Business Intelligence'}
+          </button>
+        </div>
+
+        {/* VERTICAL BLUEPRINT QUICK SWITCH */}
+        {(() => {
+          const activePreset = getVerticalPreset(verticalSettings.vertical);
+          return (
+            <button
+              type="button"
+              className="btn-vertical-config-pill"
+              onClick={() => setIsVerticalModalOpen(true)}
+              title={isAr ? 'تخصيص نشاط المتجر والمميزات التلقائية' : 'Configure store vertical blueprint and modules'}
+            >
+              <span className="vertical-pill-icon">{activePreset.icon}</span>
+              <span className="vertical-pill-name">
+                {isAr ? (activePreset.nameAr || activePreset.name) : activePreset.name}
+              </span>
+              <span className="vertical-pill-badge">{isAr ? 'تخصيص النشاط ⚙️' : 'Customize ⚙️'}</span>
+            </button>
+          );
+        })()}
       </div>
 
       {activeTab === 'analytics' ? (
@@ -252,9 +321,26 @@ function ProductManager({ user, lang, onNavigateEdit }) {
                   value={name} onChange={e => setName(e.target.value)} required />
               </div>
 
+              {/* Brand & Category */}
               <div className="form-row-2">
                 <div className="form-field">
-                  <label htmlFor="pprice">{t.priceLabel} ({currentCurrency === 'EGP' ? 'ج.م' : '$'})</label>
+                  <label htmlFor="pbrand">{isAr ? 'الماركة / البراند' : 'Brand'}</label>
+                  <input id="pbrand" type="text" placeholder="e.g. Google, Apple, Nike"
+                    value={brand} onChange={e => setBrand(e.target.value)} />
+                </div>
+                <div className="form-field">
+                  <label htmlFor="pcat">{isAr ? 'القسم / التصنيف' : 'Category'}</label>
+                  <input id="pcat" type="text" placeholder="e.g. Phones, Hoodies"
+                    value={category} onChange={e => setCategory(e.target.value)} />
+                </div>
+              </div>
+
+              <div className="form-row-2">
+                <div className="form-field">
+                  <label htmlFor="pprice">
+                    {t.priceLabel} ({currentCurrency === 'EGP' ? 'ج.م' : '$'})
+                    {variants.length > 0 && <span className="helper-pill">{isAr ? 'يبدأ من' : 'Starting'}</span>}
+                  </label>
                   <div className="input-prefix-wrapper">
                     <span className="input-prefix">{currentCurrency === 'EGP' ? 'ج.م' : '$'}</span>
                     <input id="pprice" type="number" step="0.01" placeholder="999"
@@ -262,17 +348,42 @@ function ProductManager({ user, lang, onNavigateEdit }) {
                   </div>
                 </div>
                 <div className="form-field">
-                  <label htmlFor="pstock">{t.stockQtyLabel}</label>
+                  <label htmlFor="pstock">
+                    {t.stockQtyLabel}
+                    {variants.length > 0 && <span className="helper-pill">{isAr ? 'إجمالي' : 'Total'}</span>}
+                  </label>
                   <input id="pstock" type="number" placeholder="10"
                     value={stock} onChange={e => setStock(e.target.value)} required />
                 </div>
               </div>
 
-              {/* COLOR VARIANTS SELECTOR */}
-              <div className="form-field">
-                <label>{isAr ? 'الألوان المتوفرة في المخزون' : 'Color Variants in Stock'}</label>
-                <ColorPicker colors={colors} onChange={setColors} lang={lang} />
+              {/* MULTI-VERTICAL DYNAMIC VARIANTS MATRIX */}
+              <div className="form-field" style={{ marginTop: '0.25rem', marginBottom: '0.75rem' }}>
+                <VariantMatrixEditor
+                  variants={variants}
+                  onChangeVariants={(newVariants) => {
+                    setVariants(newVariants);
+                    if (newVariants.length > 0) {
+                      const prices = newVariants.map((v) => parseFloat(v.price)).filter((p) => !isNaN(p) && p > 0);
+                      if (prices.length > 0) setPrice(Math.min(...prices));
+                      const total = newVariants.reduce((sum, v) => sum + (parseInt(v.stock, 10) || 0), 0);
+                      setStock(total);
+                    }
+                  }}
+                  vertical={verticalSettings.vertical}
+                  currency={currentCurrency}
+                  lang={lang}
+                  basePrice={price}
+                />
               </div>
+
+              {/* COLOR VARIANTS FALLBACK IF NO MATRIX USED */}
+              {variants.length === 0 && (
+                <div className="form-field">
+                  <label>{isAr ? 'الألوان المتوفرة في المخزون' : 'Color Variants in Stock'}</label>
+                  <ColorPicker colors={colors} onChange={setColors} lang={lang} />
+                </div>
+              )}
 
               {/* PHOTO UPLOADER */}
               <div className="form-field">
@@ -345,10 +456,25 @@ function ProductManager({ user, lang, onNavigateEdit }) {
                     <div className="item-top">
                       <div className="item-title-wrap">
                         <h4 className="item-title">{product.name}</h4>
-                        <span className="item-id-tag">ID: {product.id.slice(0, 6)}</span>
+                        <div className="card-meta-badges">
+                          <span className="item-id-tag">ID: {product.id.slice(0, 6)}</span>
+                          {product.brand && <span className="item-brand-tag">{product.brand}</span>}
+                          {product.category && <span className="item-category-tag">{product.category}</span>}
+                          {product.variants && product.variants.length > 0 && (
+                            <span className="item-variants-count-tag">
+                              {product.variants.length} {isAr ? 'موديلات' : 'SKUs'}
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <div className="item-price-pill">
-                        {formatCurrency(product.price, currentCurrency, lang)}
+                        {product.maxPrice && product.maxPrice > product.price ? (
+                          <span>
+                            {formatCurrency(product.price, currentCurrency, lang)} - {formatCurrency(product.maxPrice, currentCurrency, lang)}
+                          </span>
+                        ) : (
+                          formatCurrency(product.price, currentCurrency, lang)
+                        )}
                       </div>
                     </div>
 
@@ -443,6 +569,16 @@ function ProductManager({ user, lang, onNavigateEdit }) {
         </main>
       </div>
       )}
+
+      {/* VERTICAL BLUEPRINT CONFIGURATION MODAL */}
+      <VerticalSettingsModal
+        isOpen={isVerticalModalOpen}
+        onClose={() => setIsVerticalModalOpen(false)}
+        currentVertical={verticalSettings.vertical}
+        currentModules={verticalSettings.enabledModules}
+        onSave={handleSaveVerticalSettings}
+        lang={lang}
+      />
     </div>
   );
 }
