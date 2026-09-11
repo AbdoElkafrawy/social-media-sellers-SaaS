@@ -30,6 +30,15 @@ function App() {
     }
   }, []);
 
+  // Keep the browser URL in sync with the viewed store
+  useEffect(() => {
+    if (viewStoreId) {
+      const url = new URL(window.location);
+      url.searchParams.set('store', viewStoreId);
+      window.history.replaceState({}, '', url.toString());
+    }
+  }, [viewStoreId]);
+
   // Handle Language & RTL / LTR HTML Attribute
   useEffect(() => {
     localStorage.setItem('appLang', lang);
@@ -120,7 +129,10 @@ function App() {
     return (
       <PublicStorefront
         storeId={viewStoreId}
-        backToDashboard={currentUser ? () => setViewStoreId(null) : null}
+        backToDashboard={currentUser ? () => {
+          setViewStoreId(null);
+          window.history.replaceState({}, '', '/');
+        } : null}
       />
     );
   }
