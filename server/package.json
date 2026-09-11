@@ -27,7 +27,8 @@
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.3.0",
-    "prisma": "^8.0.0-rc.10"
+    "prisma": "^8.0.0-rc.10",
+    "resend": "^6.27.0"
   },
   "devDependencies": {
     "@types/node": "^22.20.2"

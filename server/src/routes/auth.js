@@ -3,9 +3,11 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { db } from '../db.js';
 import { authenticateToken, loginRateLimiter } from '../middleware/auth.js';
+import { sendResetEmail } from '../mailer.js';
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_key_change_in_prod';
+const APP_URL = process.env.APP_URL || 'http://localhost:5173';
 
 // Helper function to validate email format
 function isValidEmail(email) {
@@ -198,6 +200,85 @@ router.put('/profile', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ status: 'error', message: 'Failed to update profile.' });
+  }
+});
+
+// 6. FORGOT PASSWORD — sends a reset email
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email || !isValidEmail(email)) {
+      return res.status(400).json({ status: 'error', message: 'Please provide a valid email address.' });
+    }
+
+    const cleanEmail = email.toLowerCase().trim();
+    const user = await db.orm.public.User.where({ email: cleanEmail }).first();
+
+    // Always return success to avoid email enumeration
+    if (!user) {
+      return res.json({ status: 'success', message: 'If that email exists, a reset link has been sent.' });
+    }
+
+    // Token payload includes a fingerprint of the current password hash.
+    // Once the password is changed, the fingerprint no longer matches —
+    // making the token automatically one-time-use without any DB column.
+    const resetToken = jwt.sign(
+      { id: user.id, fingerprint: user.password.slice(-8) },
+      JWT_SECRET,
+      { expiresIn: '15m' }
+    );
+
+    const resetUrl = `${APP_URL}/reset-password?token=${resetToken}`;
+
+    await sendResetEmail(user.email, resetUrl, user.storeName);
+
+    res.json({ status: 'success', message: 'If that email exists, a reset link has been sent.' });
+  } catch (error) {
+    console.error('Forgot Password Error:', error);
+    // Don't leak internal errors to the client
+    res.json({ status: 'success', message: 'If that email exists, a reset link has been sent.' });
+  }
+});
+
+// 7. RESET PASSWORD — validates token and sets new password
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    if (!token) {
+      return res.status(400).json({ status: 'error', message: 'Reset token is missing.' });
+    }
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({ status: 'error', message: 'Password must be at least 6 characters long.' });
+    }
+
+    // Verify JWT signature and expiry
+    let payload;
+    try {
+      payload = jwt.verify(token, JWT_SECRET);
+    } catch (err) {
+      return res.status(400).json({ status: 'error', message: 'This reset link has expired or is invalid. Please request a new one.' });
+    }
+
+    const user = await db.orm.public.User.where({ id: payload.id }).first();
+    if (!user) {
+      return res.status(400).json({ status: 'error', message: 'User not found.' });
+    }
+
+    // Check fingerprint matches current password hash
+    // (ensures the token hasn’t already been used)
+    if (user.password.slice(-8) !== payload.fingerprint) {
+      return res.status(400).json({ status: 'error', message: 'This reset link has already been used. Please request a new one.' });
+    }
+
+    // Hash and save new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await db.orm.public.User.where({ id: user.id }).update({ password: hashedPassword });
+
+    res.json({ status: 'success', message: 'Password reset successfully! You can now log in with your new password.' });
+  } catch (error) {
+    console.error('Reset Password Error:', error);
+    res.status(500).json({ status: 'error', message: 'Server error. Please try again.' });
   }
 });
 
