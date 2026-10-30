@@ -1,0 +1,18 @@
+name: Supabase & Render Keep-Alive
+
+on:
+  schedule:
+    # Runs every 12 hours (06:00 and 18:00 UTC) to prevent Supabase database pausing
+    - cron: '0 6,18 * * *'
+  workflow_dispatch: # Allows manual trigger from GitHub Actions tab
+
+jobs:
+  keepalive:
+    name: Ping Database & App
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send keep-alive request to Render & Supabase
+        run: |
+          echo "Sending keep-alive ping to https://social-media-sellers.onrender.com/api/db-check ..."
+          RESPONSE=$(curl -s --max-time 60 "https://social-media-sellers.onrender.com/api/db-check")
+          echo "Response received: $RESPONSE"

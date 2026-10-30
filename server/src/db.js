@@ -8,4 +8,5 @@ const contractJson = require('./prisma/contract.json');
 export const db = postgres({
   contractJson,
   url: process.env.DATABASE_URL,
+  verifyMarker: false,
 });

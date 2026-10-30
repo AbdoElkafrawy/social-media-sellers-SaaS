@@ -100,7 +100,14 @@ async function bootstrapDatabase() {
     }
   } catch (err) {
     console.log("⚠️ Database tables may need sync. Running auto-migration...", err.message);
-    exec("npx prisma db update --no-interactive --confirm social_seller_db", async (err, stdout, stderr) => {
+    let dbName = "postgres";
+    try {
+      if (process.env.DATABASE_URL) {
+        const parsed = new URL(process.env.DATABASE_URL);
+        dbName = parsed.pathname.replace(/^\//, '') || "postgres";
+      }
+    } catch (_) {}
+    exec(`npx prisma db update --no-interactive --confirm ${dbName}`, async (err, stdout, stderr) => {
       if (err) {
         console.error("Prisma db update error:", err.message);
       } else {

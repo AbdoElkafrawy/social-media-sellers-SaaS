@@ -1,0 +1,19 @@
+{
+  "945e76f2-a280-4866-a036-1c9bee58cfa1": {
+    "vertical": "perishables",
+    "enabledModules": [
+      "batch_expiry_tracking"
+    ],
+    "customAttributes": [],
+    "updatedAt": "2026-09-11T21:53:24.800Z"
+  },
+  "6f0f0c1c-9299-4457-b3cb-badd2d243092": {
+    "vertical": "apparel",
+    "enabledModules": [
+      "size_charts",
+      "exchange_rules"
+    ],
+    "customAttributes": [],
+    "updatedAt": "2026-09-11T21:54:37.039Z"
+  }
+}
