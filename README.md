@@ -1,6 +1,7 @@
 ﻿# Social Media Sellers Platform (SaaS)
 
 An end-to-end B2B SaaS platform engineered for social media commerce sellers (Instagram, TikTok, Facebook). Sellers manage inventory, publish a high-conversion mobile-first storefront link in their bio, and receive customer orders directly on WhatsApp with color variant selection and localized currencies.
+the application is live at https://social-media-sellers.onrender.com
 
 ---
 
